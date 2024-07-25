@@ -72,7 +72,8 @@ hardware_interface::CallbackReturn DiffDriveArduinoHardware::on_init(
   cfg_.left_wheel_name = info_.hardware_parameters["left_wheel_name"];
   cfg_.right_wheel_name = info_.hardware_parameters["right_wheel_name"];
   cfg_.loop_rate = std::stof(info_.hardware_parameters["loop_rate"]);
-  cfg_.device = info_.hardware_parameters["device"];
+  // cfg_.device = info_.hardware_parameters["device"];
+  cfg_.device = "/dev/serial/by-path/pci-0000:00:14.0-usb-0:1:1.0-port0";
   cfg_.baud_rate = std::stoi(info_.hardware_parameters["baud_rate"]);
   cfg_.timeout_ms = std::stoi(info_.hardware_parameters["timeout_ms"]);
   cfg_.enc_counts_per_rev = std::stoi(info_.hardware_parameters["enc_counts_per_rev"]);
@@ -330,7 +331,7 @@ hardware_interface::return_type diffdrive_arduino ::DiffDriveArduinoHardware::wr
   hw_cmd->publishBattery(float(voltage));
   // hw_cmd->publishRemoteState(remote_activated_);
 
-  // RCLCPP_INFO(rclcpp::get_logger("feedback"),"d_l: %lf, d_r: %lf, pwm_l: %d, pwm_r: %d, cmd_l : %lf, cmd_r : %lf, vel_l : %lf, vel_r : %lf, voltage: %d", wheel_l_.distance, wheel_r_.distance, pwm_l, pwm_r, wheel_l_.cmd, wheel_r_.cmd, wheel_l_.vel,wheel_r_.vel, voltage);
+  RCLCPP_INFO(rclcpp::get_logger("feedback"),"d_l: %lf, d_r: %lf, pwm_l: %d, pwm_r: %d, cmd_l : %lf, cmd_r : %lf, vel_l : %lf, vel_r : %lf, voltage: %d", wheel_l_.distance, wheel_r_.distance, pwm_l, pwm_r, wheel_l_.cmd, wheel_r_.cmd, wheel_l_.vel,wheel_r_.vel, voltage);
   // RCLCPP_INFO(rclcpp::get_logger("feedback"),"battery: %d", voltage);
 
   return hardware_interface::return_type::OK;
