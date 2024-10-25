@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Joystick</title>
+    <style>
+        html, body {
+            height: 100%; /* Full height */
+            margin: 0; /* Remove default margin */
+            display: flex; /* Use flexbox to center content */
+            flex-direction: column; /* Arrange items vertically */
+            justify-content: center; /* Center horizontally */
+            align-items: center; /* Center vertically */
+            background-color: #e0e0e0; /* Optional background color for contrast */
+        }
+
+        #joystickContainer {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            background-color: #f0f0f0;
+            border-radius: 50%;
+            border: 1px solid #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px; /* Space between joystick and input */
+        }
+
+        canvas {
+            position: absolute;
+        }
+
+        #topicInput {
+            padding: 10px;
+            width: 200px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        #topicLabel {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="joystickContainer"></div>
+    <label id="topicLabel" for="topicInput">ROS2 Topic:</label>
+    <input id="topicInput" type="text" value="/cmd_vel" placeholder="Enter ROS2 topic"/>
+    <!-- Max X Value Slider -->
+    <label for="maxXValueSlider">Max X Value:</label>
+    <input type="range" id="maxXValueSlider" min="100" max="200" value="100" step="10">
+    <span id="maxXValueDisplay">100</span>
+
+    <!-- Max Y Value Slider -->
+    <label for="maxYValueSlider">Max Y Value:</label>
+    <input type="range" id="maxYValueSlider" min="100" max="200" value="100" step="10">
+    <span id="maxYValueDisplay">100</span>
+
+    <script>
+        const StickStatus = {
+            xPosition: 0,
+            yPosition: 0,
+            x: 0,
+            y: 0,
+            cardinalDirection: "C"
+        };
+
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+        let desiredRosTopic = document.getElementById('topicInput').value; // Initialize with input value
+        let maxXValue = 100; // Default max value for x
+        let maxYValue = 100; // Default max value for y
+
+        // Update max X value when the slider changes
+        document.getElementById('maxXValueSlider').addEventListener('input', function() {
+            maxXValue = parseInt(this.value);
+            document.getElementById('maxXValueDisplay').textContent = this.value; // Display the value
+        });
+
+        // Update max Y value when the slider changes
+        document.getElementById('maxYValueSlider').addEventListener('input', function() {
+            maxYValue = parseInt(this.value);
+            document.getElementById('maxYValueDisplay').textContent = this.value; // Display the value
+        });
+
+
+        // Function to update the desired ROS2 topic
+        document.getElementById('topicInput').addEventListener('change', function() {
+            desiredRosTopic = this.value; // Update the desired topic when the input changes
+        });
+
+        function JoyStick(containerId, parameters = {}, callback = (status) => {}) {
+            const container = document.getElementById(containerId);
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            const width = parameters.width || container.clientWidth;
+            const height = parameters.height || container.clientHeight;
+            const internalRadius = (width - 30) / 2;
+            const maxMoveStick = internalRadius + 5;
+            const externalRadius = internalRadius + 30;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            let movedX = centerX;  // Initialize movedX at center
+            let movedY = centerY;  // Initialize movedY at center
+            let pressed = false;
+
+            canvas.width = width;
+            canvas.height = height;
+            container.appendChild(canvas);
+
+            function drawJoystick() {
+                context.clearRect(0, 0, width, height);
+                context.beginPath();
+                context.arc(centerX, centerY, externalRadius, 0, 2 * Math.PI, false);
+                context.lineWidth = 2;
+                context.strokeStyle = '#008000';
+                context.stroke();
+
+                context.beginPath();
+                context.arc(movedX, movedY, internalRadius, 0, 2 * Math.PI, false);
+                context.fillStyle = '#00AA00';
+                context.fill();
+                context.lineWidth = 2;
+                context.strokeStyle = '#003300';
+                context.stroke();
+            }
+
+            function updatePosition(x, y) {
+                // Limit movement to joystick area
+                const dx = x - centerX;
+                const dy = centerY - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > maxMoveStick) {
+                    const angle = Math.atan2(dy, dx);
+                    movedX = centerX + Math.cos(angle) * maxMoveStick;
+                    movedY = centerY - Math.sin(angle) * maxMoveStick;
+                } else {
+                    movedX = x;
+                    movedY = y;
+                }
+                
+                drawJoystick();
+
+                StickStatus.xPosition = movedX;
+                StickStatus.yPosition = movedY;
+
+                // Calculate x and y values clamped to the range of -100 to 100
+                StickStatus.x = Math.max(-maxXValue, Math.min(maxXValue, ((movedX - centerX) / maxMoveStick * maxXValue).toFixed()));
+                StickStatus.y = Math.max(-maxYValue, Math.min(maxYValue, ((centerY - movedY) / maxMoveStick * maxYValue).toFixed()));
+                
+                callback(StickStatus);
+            }
+
+            function sendJoystickData(x, y, topic) {
+                socket.emit('joystick_data', { x: x, y: y, topic: topic });  // Send the joystick data to the backend
+
+            }
+
+            // Send joystick data every 100ms
+            setInterval(() => {
+                if (StickStatus.x === 0) {
+                    return
+                }
+                if (StickStatus.y === 0) {
+                    return
+                }
+                sendJoystickData(StickStatus.x, StickStatus.y, desiredRosTopic);
+            }, 100);
+            
+            // Mouse Events
+            canvas.addEventListener('mousedown', (event) => {
+                pressed = true;
+                updatePosition(event.offsetX, event.offsetY);
+            });
+
+            canvas.addEventListener('mousemove', (event) => {
+                if (pressed) {
+                    updatePosition(event.offsetX, event.offsetY);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                pressed = false;
+                if (parameters.autoReturnToCenter !== false) {
+                    updatePosition(centerX, centerY);  // Return to center on mouse up
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                pressed = false;
+                if (parameters.autoReturnToCenter !== false) {
+                    updatePosition(centerX, centerY);  // Return to center on mouse leave
+                }
+            });
+
+            // Touch Events
+            canvas.addEventListener('touchstart', (event) => {
+                event.preventDefault(); // Prevent scrolling on touch devices
+                pressed = true;
+                const touch = event.touches[0];
+                updatePosition(touch.clientX - container.getBoundingClientRect().left, touch.clientY - container.getBoundingClientRect().top);
+            });
+
+            canvas.addEventListener('touchmove', (event) => {
+                event.preventDefault();
+                if (pressed) {
+                    const touch = event.touches[0];
+                    updatePosition(touch.clientX - container.getBoundingClientRect().left, touch.clientY - container.getBoundingClientRect().top);
+                }
+            });
+
+            canvas.addEventListener('touchend', () => {
+                pressed = false;
+                if (parameters.autoReturnToCenter !== false) {
+                    updatePosition(centerX, centerY);  // Return to center on touch end
+                }
+            });
+
+            canvas.addEventListener('touchcancel', () => {
+                pressed = false;
+                if (parameters.autoReturnToCenter !== false) {
+                    updatePosition(centerX, centerY);  // Return to center on touch cancel
+                }
+            });
+
+            drawJoystick(); // Draw the joystick initially centered
+        }
+
+        new JoyStick('joystickContainer', { width: 200, height: 200 });
+    </script>
+</body>
+</html>
