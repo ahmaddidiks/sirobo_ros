@@ -53,13 +53,13 @@
     <input id="topicInput" type="text" value="/cmd_vel" placeholder="Enter ROS2 topic"/>
     <!-- Max X Value Slider -->
     <label for="maxXValueSlider">Max X Value:</label>
-    <input type="range" id="maxXValueSlider" min="100" max="200" value="100" step="10">
-    <span id="maxXValueDisplay">100</span>
+    <input type="range" id="maxXValueSlider" min="10" max="100" value="50" step="10">
+    <span id="maxXValueDisplay">50</span>
 
     <!-- Max Y Value Slider -->
     <label for="maxYValueSlider">Max Y Value:</label>
-    <input type="range" id="maxYValueSlider" min="100" max="200" value="100" step="10">
-    <span id="maxYValueDisplay">100</span>
+    <input type="range" id="maxYValueSlider" min="10" max="100" value="50" step="10">
+    <span id="maxYValueDisplay">50</span>
 
     <script>
         const StickStatus = {
@@ -72,8 +72,8 @@
 
         const socket = io.connect('http://' + document.domain + ':' + location.port);
         let desiredRosTopic = document.getElementById('topicInput').value; // Initialize with input value
-        let maxXValue = 100; // Default max value for x
-        let maxYValue = 100; // Default max value for y
+        let maxXValue = 50; // Default max value for x
+        let maxYValue = 50; // Default max value for y
 
         // Update max X value when the slider changes
         document.getElementById('maxXValueSlider').addEventListener('input', function() {
